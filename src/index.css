@@ -1,0 +1,43 @@
+/* small utility input style used across components */
+@import "tailwindcss";
+
+.input-field {
+  @apply mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500;
+}
+
+/* tiny global body background tweak */
+body {
+  @apply bg-gray-50;
+}
+
+.floating-bg {
+  width: 20vw;
+  height: 20vw;
+  background-color: #86efac;
+  position: absolute;
+  top: 0%;
+  left: calc(50% - 18rem);
+  border-radius: 45%;
+  animation: rotate 30s infinite;
+}
+
+.floating-bg::before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  background-color: #45c480;
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 40%;
+  animation: rotate 30s infinite;
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(0);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
