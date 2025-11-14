@@ -546,7 +546,7 @@ export function HistoryTracker({ newCalculation, onSelectHistory }) {
     if (!newCalculation || !newCalculation._id) return;
 
     setHistory((prev) => {
-      const exists = prev.some((item) => item._id === newCalculation._id);
+      const exists = prev.some((item) => item.id === newCalculation.id);
       if (exists) return prev;
 
       // prepend newest → keep sorted
@@ -659,7 +659,7 @@ export function HistoryTracker({ newCalculation, onSelectHistory }) {
           .reverse() // newest → oldest
           .map((item) => (
             <button
-              key={item._id}
+              key={item.id}
               onClick={() => onSelectHistory(item)}
               className="w-full text-left p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group"
             >
