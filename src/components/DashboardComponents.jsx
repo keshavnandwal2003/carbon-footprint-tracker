@@ -30,6 +30,7 @@ import { useAuthStore } from "../store/authStore.js";
 import { mockApi } from "../lib/api.js";
 import { calculateFootprint } from "../lib/logic.js";
 import { SimpleMarkdownDisplay, LoadingSpinner } from "./UtilityComponents.jsx";
+import axios from "axios";
 
 // --- Chart.js Registration ---
 ChartJS.register(
@@ -63,6 +64,7 @@ export function CalculatorForm({ onCalculation }) {
     // Waste (Daily)
     wastePeople: 1,
   });
+
   const [isLoading, setIsLoading] = useState(false);
   const token = useAuthStore((state) => state.token);
 
@@ -77,14 +79,38 @@ export function CalculatorForm({ onCalculation }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    const result = calculateFootprint(inputs);
+
+    // Calculate footprint locally
+    const { totalFootprint, breakdown } = calculateFootprint(inputs);
+
     try {
-      const savedFootprint = await mockApi.postFootprint(token, result);
-      onCalculation(savedFootprint);
+      // Only send footprint data — backend will extract user from token
+      const response = await axios.post(
+        "https://carbon-footprint-tracker-api.vercel.app/api/v1/footprints",
+        { totalFootprint, breakdown },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // Call the parent callback with the saved footprint
+      onCalculation({ totalFootprint, breakdown });
+      console.log("Footprint saved:", response.data);
     } catch (error) {
       console.error("Failed to save footprint:", error);
+    } finally {
+      setIsLoading(false);
+      setInputs({
+        energyKwh: "",
+        gasTherms: "",
+        transportCar: "",
+        transportBus: "",
+        transportTrain: "",
+        transportFlight: "",
+        diet: "dietOmnivore",
+        wastePeople: 1,
+      });
     }
-    setIsLoading(false);
   };
 
   return (
@@ -326,11 +352,7 @@ export function ResultDisplay({ calculation }) {
     setAiTips(null);
     setGenerationError(null);
     try {
-      const tips = await mockApi.getReductionTips(
-        token,
-        calculation.breakdown,
-        calculation.totalFootprint
-      );
+      const tips = await mockApi.getReductionTips();
       setAiTips(tips);
     } catch (err) {
       setGenerationError(err.message);
@@ -485,37 +507,73 @@ export function HistoryTracker({ newCalculation, onSelectHistory }) {
   const [error, setError] = useState(null);
   const token = useAuthStore((state) => state.token);
 
+  // ---------------------------------------------------------
+  // 1. Fetch history from API (sorted oldest → newest)
+  // ---------------------------------------------------------
   useEffect(() => {
     const fetchHistory = async () => {
       setIsLoading(true);
       setError(null);
+
       try {
-        const data = await mockApi.getFootprints(token);
-        setHistory(data);
+        const response = await axios.get(
+          "https://carbon-footprint-tracker-api.vercel.app/api/v1/footprints",
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const items = response.data?.data || [];
+
+        // sort oldest → newest for charts
+        const sorted = items.sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        );
+
+        setHistory(sorted);
       } catch (err) {
-        setError(err.message);
+        setError(err?.message || "Failed to load history");
       }
+
       setIsLoading(false);
     };
+
     fetchHistory();
   }, [token]);
 
+  // ---------------------------------------------------------
+  // 2. Append a new calculation (newest) — from CalculatorForm
+  // ---------------------------------------------------------
   useEffect(() => {
-    if (newCalculation) {
-      // Add new calculation to list
-      setHistory((prev) => [...prev, newCalculation]);
-    }
+    if (!newCalculation || !newCalculation._id) return;
+
+    setHistory((prev) => {
+      const exists = prev.some((item) => item._id === newCalculation._id);
+      if (exists) return prev;
+
+      // prepend newest → keep sorted
+      const updated = [...prev, newCalculation].sort(
+        (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+      );
+
+      return updated;
+    });
   }, [newCalculation]);
 
-  // Memoize chart data
+  // ---------------------------------------------------------
+  // 3. Memoized chart data
+  // ---------------------------------------------------------
   const { lineChartData, lineChartOptions } = useMemo(() => {
+    if (!history.length) {
+      return { lineChartData: null, lineChartOptions: {} };
+    }
+
     const labels = history.map((item) =>
       new Date(item.createdAt).toLocaleDateString("en-US", {
         month: "short",
         year: "numeric",
       })
     );
-    const data = history.map((item) => item.totalFootprint);
+
+    const data = history.map((item) => item.totalFootprint ?? 0);
 
     return {
       lineChartData: {
@@ -527,7 +585,7 @@ export function HistoryTracker({ newCalculation, onSelectHistory }) {
             fill: true,
             backgroundColor: "rgba(16, 185, 129, 0.1)",
             borderColor: "rgba(16, 185, 129, 1)",
-            tension: 0.1,
+            tension: 0.2,
             pointBackgroundColor: "rgba(16, 185, 129, 1)",
           },
         ],
@@ -552,6 +610,9 @@ export function HistoryTracker({ newCalculation, onSelectHistory }) {
     };
   }, [history]);
 
+  // ---------------------------------------------------------
+  // UI States
+  // ---------------------------------------------------------
   if (isLoading) {
     return (
       <div className="text-center p-4 flex justify-center items-center gap-2">
@@ -561,9 +622,21 @@ export function HistoryTracker({ newCalculation, onSelectHistory }) {
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center p-4 text-red-500">
+        <p>Error: {error}</p>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // 4. Render Component
+  // ---------------------------------------------------------
   return (
     <div className="bg-white p-6 rounded-xl shadow-lg space-y-6">
       <h2 className="text-3xl font-bold text-gray-800">Your History</h2>
+
       {history.length < 2 ? (
         <div className="text-center text-gray-500 p-4">
           <Info className="w-8 h-8 mx-auto mb-2" />
@@ -575,12 +648,15 @@ export function HistoryTracker({ newCalculation, onSelectHistory }) {
         </div>
       )}
 
-      {/* History List */}
+      {/* ---------------------------------------------------------
+          History List (newest first)
+         --------------------------------------------------------- */}
       <div className="space-y-3 max-h-60 overflow-y-auto">
         <h3 className="text-lg font-semibold text-gray-700">Calculation Log</h3>
+
         {history
-          .slice() // Create a copy
-          .reverse() // Show newest first
+          .slice()
+          .reverse() // newest → oldest
           .map((item) => (
             <button
               key={item._id}
@@ -589,7 +665,7 @@ export function HistoryTracker({ newCalculation, onSelectHistory }) {
             >
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold text-green-700 group-hover:text-green-800">
-                  {item.totalFootprint} kg CO2e
+                  {item.totalFootprint ?? 0} kg CO2e
                 </span>
                 <span className="text-sm text-gray-500">
                   {new Date(item.createdAt).toLocaleDateString()}
@@ -601,7 +677,6 @@ export function HistoryTracker({ newCalculation, onSelectHistory }) {
     </div>
   );
 }
-
 // --- NEW: 4d. "My Goals" Page (Imported) ---
 export function GoalsPage() {
   const [goalData, setGoalData] = useState(null);

@@ -184,17 +184,17 @@ export const mockApi = {
     },
 
     // --- GEMINI API ---
-    getReductionTips: async (token, breakdown, totalFootprint) => {
+    getReductionTips: async () => {
         await wait(1500);
-        if (!token) throw new Error('Unauthorized');
-        const apiKey = "";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-        const systemPrompt = `You are an encouraging climate coach. Provide actionable, simple tips. Use markdown for formatting, like **bolding** key ideas and using newlines for lists.`;
-        const userQuery = `My monthly carbon footprint is ${totalFootprint} kg CO2e. Breakdown: Energy: ${breakdown.energy}, Transport: ${breakdown.transport}, Flights: ${breakdown.flights}, Diet: ${breakdown.diet}, Waste: ${breakdown.waste}. Give me 3 personalized tips to reduce my footprint, focusing on my highest categories.`;
+        // if (!token) throw new Error('Unauthorized');
+        // const apiKey = "";
+        // const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        // const systemPrompt = `You are an encouraging climate coach. Provide actionable, simple tips. Use markdown for formatting, like **bolding** key ideas and using newlines for lists.`;
+        // const userQuery = `My monthly carbon footprint is ${totalFootprint} kg CO2e. Breakdown: Energy: ${breakdown.energy}, Transport: ${breakdown.transport}, Flights: ${breakdown.flights}, Diet: ${breakdown.diet}, Waste: ${breakdown.waste}. Give me 3 personalized tips to reduce my footprint, focusing on my highest categories.`;
 
         // --- Mocked Response (Simulating a real API call's structure) ---
         // In a real app, you would use fetch() here.
-        console.log("Simulating Gemini API call with query:", userQuery);
+        // console.log("Simulating Gemini API call with query:", userQuery);
         let tips = "Here are a few personalized tips based on your results:\n\n";
         tips += "**Action 1:** Your **Energy** use is significant. Try switching to LED bulbs and unplugging electronics when not in use. This 'phantom load' adds up!\n\n";
         tips += "**Action 2:** Your **Diet** has a noticeable impact. Try introducing one or two plant-based meal days per week, like 'Meatless Monday'.\n\n";

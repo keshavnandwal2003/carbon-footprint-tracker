@@ -63,7 +63,8 @@ export function DashboardPage() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600 hidden md:block">
-              Logged in as <strong>{user?.email}</strong>
+              {console.log(user)}
+              Logged in as <strong>{user?.full_name}</strong>
             </span>
             <button
               onClick={logout}
